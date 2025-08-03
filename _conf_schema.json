@@ -1,0 +1,8 @@
+{
+    "poke_screenshot": {
+        "description": "戳一戳触发截屏",
+        "type": "bool",
+        "hint": "戳一戳bot时触发截屏",
+        "default": false
+    }
+}
