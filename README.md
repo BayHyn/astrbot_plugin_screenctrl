@@ -1,4 +1,5 @@
 
+
 <div align="center">
 
 ![:name](https://count.getloli.com/@astrbot_plugin_screenctrl?name=astrbot_plugin_screenctrl&theme=minecraft&padding=6&offset=0&align=top&scale=1&pixelated=1&darkmode=auto)
@@ -31,6 +32,21 @@ git clone https://github.com/Zhalslar/astrbot_plugin_screenctrl
 
 # 控制台重启AstrBot
 ```
+
+## ⌨️ 使用说明
+
+### 命令表
+
+|     命令      |                    说明                    |
+|:-------------:|:-----------------------------------------------:|
+| /截屏   | 对当前电脑屏幕进行截屏  |
+| /点击 x y   | 模拟鼠标点击屏幕的该坐标 |
+| /按下 按键   |   模拟键盘按下该键位，多个单键按顺序输入如 `hello`，组合键如 `win+r`  |
+| （戳一戳）  |  触发截屏，该功能需在配置里打开     |
+
+### 示例图
+
+![61e11f66fcb27356ac8c5cc0d3cfd82](https://github.com/user-attachments/assets/b00c2c1b-9c97-4d38-b46f-a10fed0d0bd3)
 
 ## ⌨️ 配置
 
