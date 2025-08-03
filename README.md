@@ -5,7 +5,7 @@
 
 # astrbot_plugin_screenctrl
 
-_✨ [astrbot](https://github.com/AstrBotDevs/AstrBot) 截图插件 ✨_  
+_✨ [astrbot](https://github.com/AstrBotDevs/AstrBot) 屏幕控制插件 ✨_  
 
 [![License](https://img.shields.io/badge/License-MIT-green.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-blue.svg)](https://www.python.org/)
@@ -16,7 +16,7 @@ _✨ [astrbot](https://github.com/AstrBotDevs/AstrBot) 截图插件 ✨_
 
 ## 🤝 介绍
 
-截屏插件，对当前电脑的屏幕进行截图
+屏幕控制插件，支持截屏、点击、按键等
 
 ## 📦 安装
 
