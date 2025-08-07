@@ -15,7 +15,7 @@ from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import Aioc
     "astrbot_plugin_screenctrl",
     "Zhalslar",
     "屏幕控制插件，支持截屏、点击、按键等",
-    "v1.0.0",
+    "v1.0.1",
     "https://github.com/Zhalslar/astrbot_plugin_screenctrl",
 )
 class ScreenshotPlugin(Star):
