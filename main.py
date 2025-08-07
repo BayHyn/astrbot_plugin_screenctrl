@@ -1,4 +1,4 @@
-
+import asyncio
 from datetime import datetime
 import time
 from astrbot.api.event import filter
@@ -27,12 +27,11 @@ class ScreenshotPlugin(Star):
         self.cooldown_seconds: int = 1
         self.poke_screenshot: bool = config.get("poke_screenshot", False)
 
-    def _capture(self) -> str:
-        """执行截图并保存，返回图片路径"""
+    async def _capture(self) -> str:
         save_name = datetime.now().strftime("screenshot_%Y%m%d_%H%M%S.png")
         save_path = self.plugin_data_dir / save_name
-        screenshot = pyautogui.screenshot()
-        screenshot.save(save_path)
+        screenshot = await asyncio.to_thread(pyautogui.screenshot)
+        await asyncio.to_thread(screenshot.save, save_path)
         return str(save_path)
 
     def _clamp_position(self, x: int, y: int) -> tuple[int, int]:
@@ -44,15 +43,14 @@ class ScreenshotPlugin(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("截屏")
     async def on_capture(self, event: AstrMessageEvent):
-        path = self._capture()
-        yield event.image_result(path)
+        yield event.image_result(await self._capture())
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("点击")
     async def click_and_screenshot(self, event: AstrMessageEvent, x: int=0, y: int=0):
         x, y = self._clamp_position(x, y)
         pyautogui.click(x, y)
-        yield event.image_result(self._capture())
+        yield event.image_result(await self._capture())
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("按下")
@@ -83,14 +81,15 @@ class ScreenshotPlugin(Star):
             yield event.plain_result(f"按键执行失败: {e}")
             return
 
-        yield event.image_result(self._capture())
+        yield event.image_result(await self._capture())
 
 
-    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def on_poke(self, event: AiocqhttpMessageEvent):
         """戳一戳截屏"""
         if not self.poke_screenshot:
+            return
+        if not event.is_admin():
             return
         raw_message = getattr(event.message_obj, "raw_message", None)
 
@@ -116,4 +115,4 @@ class ScreenshotPlugin(Star):
             return
         self.last_trigger_time[user_id] = current_time
 
-        yield event.image_result(self._capture())
+        yield event.image_result(await self._capture())
