@@ -21,7 +21,7 @@ from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import Aioc
 class ScreenshotPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
-        self.plugin_data_dir = StarTools.get_data_dir("astrbot_plugin_screenshot")
+        self.plugin_data_dir = StarTools.get_data_dir("astrbot_plugin_screenctrl")
         self.screen_width, self.screen_height = pyautogui.size()
         self.last_trigger_time: dict = {}
         self.cooldown_seconds: int = 1
