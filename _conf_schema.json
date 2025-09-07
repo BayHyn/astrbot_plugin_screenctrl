@@ -2,7 +2,19 @@
     "poke_screenshot": {
         "description": "戳一戳触发截屏",
         "type": "bool",
-        "hint": "戳一戳bot时触发截屏",
+        "hint": "戳一戳bot时触发截屏，谨慎开启，开启后其他戳一戳插件将失效",
+        "default": false
+    },
+    "poke_cd": {
+        "description": "戳一戳冷却时间",
+        "type": "int",
+        "hint": "按群聊分CD, 群内CD共享",
+        "default": 2
+    },
+    "only_admin": {
+        "description": "仅bot管理员可用",
+        "type": "bool",
+        "hint": "戳一戳截屏指令由于具有高危险性，故默认仅管理员可用, 其他指令采用本配置的权限",
         "default": false
     }
 }

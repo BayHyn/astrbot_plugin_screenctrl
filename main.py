@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 import time
 from astrbot.api.event import filter
 from astrbot.api.star import Context, Star, StarTools, register
@@ -15,17 +15,18 @@ from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import Aioc
     "astrbot_plugin_screenctrl",
     "Zhalslar",
     "屏幕控制插件，支持截屏、点击、按键等",
-    "v1.0.1",
+    "v1.0.2",
     "https://github.com/Zhalslar/astrbot_plugin_screenctrl",
 )
 class ScreenshotPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
+        self.conf = config
         self.plugin_data_dir = StarTools.get_data_dir("astrbot_plugin_screenctrl")
         self.screen_width, self.screen_height = pyautogui.size()
         self.last_trigger_time: dict = {}
-        self.cooldown_seconds: int = 1
-        self.poke_screenshot: bool = config.get("poke_screenshot", False)
+        self.tasks: dict[int, asyncio.Task] = {}  # 任务 ID -> Task
+
 
     async def _capture(self) -> str:
         save_name = datetime.now().strftime("screenshot_%Y%m%d_%H%M%S.png")
@@ -34,62 +35,47 @@ class ScreenshotPlugin(Star):
         await asyncio.to_thread(screenshot.save, save_path)
         return str(save_path)
 
-    def _clamp_position(self, x: int, y: int) -> tuple[int, int]:
-        """限制坐标在屏幕范围内"""
-        x = max(0, min(x, self.screen_width - 1))
-        y = max(0, min(y, self.screen_height - 1))
-        return x, y
-
-    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("截屏")
     async def on_capture(self, event: AstrMessageEvent):
-        yield event.image_result(await self._capture())
-
-    @filter.permission_type(filter.PermissionType.ADMIN)
-    @filter.command("点击")
-    async def click_and_screenshot(self, event: AstrMessageEvent, x: int=0, y: int=0):
-        x, y = self._clamp_position(x, y)
-        pyautogui.click(x, y)
-        yield event.image_result(await self._capture())
-
-    @filter.permission_type(filter.PermissionType.ADMIN)
-    @filter.command("按下")
-    async def press_keys_and_screenshot(self, event: AstrMessageEvent, keys: str):
-        """
-        同时支持：
-        - 多个单键按顺序输入，如 `hello`
-        - 组合键，如 `win+r`
-        """
-        valid_keys = set(pyautogui.KEYBOARD_KEYS)
-        try:
-            if "+" in keys:
-                # 组合键，例如 win+r
-                combo = [k.strip().lower() for k in keys.split("+")]
-                if not all(k in valid_keys for k in combo):
-                    invalid = [k for k in combo if k not in valid_keys]
-                    yield event.plain_result(f"无效键位: {', '.join(invalid)}")
-                    return
-                pyautogui.hotkey(*combo)
-            else:
-                # 连续按键，例如 hello
-                for k in keys:
-                    if k.lower() not in valid_keys:
-                        yield event.plain_result(f"不支持的键：{k}")
-                        return
-                    pyautogui.press(k.lower())
-        except Exception as e:
-            yield event.plain_result(f"按键执行失败: {e}")
+        if not event.is_admin() and self.conf["only_admin"]:
             return
-
         yield event.image_result(await self._capture())
 
+    @filter.command("连续截屏")
+    async def on_continuous_capture(self, event: AstrMessageEvent, count: int =3, interval: int =5):
+        """连续截屏 <次数> <间隔秒>"""
+        if not event.is_admin() and self.conf["only_admin"]:
+            return
+        count = max(1, min(count, 10))
+        interval = max(1, min(interval, 3600))
 
-    @filter.event_message_type(filter.EventMessageType.ALL)
+        task_id = len(self.tasks) + 1
+
+        yield event.plain_result(f"连续截屏#{task_id}(共{count}次, 间隔{interval}秒):")
+        async def task():
+            try:
+                for i in range(count):
+                    img_path = await self._capture()
+                    await event.send(event.image_result(img_path))
+                    if i < count - 1:
+                        await asyncio.sleep(interval)
+            except asyncio.CancelledError:
+                await event.send(
+                    event.plain_result(f"连续截屏任务 #{task_id} 已被取消")
+                )
+                return
+            finally:
+                self.tasks.pop(task_id, None)
+
+        self.tasks[task_id] = asyncio.create_task(task())
+
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    @filter.event_message_type(filter.EventMessageType.ALL, priority=1)
     async def on_poke(self, event: AiocqhttpMessageEvent):
         """戳一戳截屏"""
-        if not self.poke_screenshot:
+        if not self.conf["poke_screenshot"]:
             return
-        if not event.is_admin():
+        if not event.is_admin() and self.conf["only_admin"]:
             return
         raw_message = getattr(event.message_obj, "raw_message", None)
 
@@ -100,19 +86,68 @@ class ScreenshotPlugin(Star):
         ):
             return
 
-        target_id: int = raw_message.get("target_id", 0)
-        user_id: int = raw_message.get("user_id", 0)
-        self_id: int = raw_message.get("self_id", 0)
-
         # 过滤与自身无关的戳
-        if target_id != self_id:
+        if raw_message.get("target_id") != raw_message.get("self_id"):
             return
-
-        # 冷却机制
+        group_id: int = raw_message.get("group_id", 0)
+        # 冷却机制(防止连戳)
         current_time = time.monotonic()
-        last_time = self.last_trigger_time.get(user_id, 0)
-        if current_time - last_time < self.cooldown_seconds:
+        last_time = self.last_trigger_time.get(group_id, 0)
+        if current_time - last_time < self.conf["poke_cd"]:
             return
-        self.last_trigger_time[user_id] = current_time
+        self.last_trigger_time[group_id] = current_time
 
         yield event.image_result(await self._capture())
+
+    @filter.command("定时截屏")
+    async def on_schedule_capture(self, event: AstrMessageEvent):
+        """定时截屏: /定时截屏 HH:MM[:SS]"""
+        if not event.is_admin() and self.conf["only_admin"]:
+            return
+        parts = event.message_str.split()
+        if len(parts) < 2:
+            yield event.plain_result("用法: /定时截屏 HH:MM[:SS]")
+            return
+
+        target_time = None
+        for fmt in ("%H:%M:%S", "%H:%M"):
+            try:
+                target_time = datetime.strptime(parts[1], fmt).time()
+                break
+            except ValueError:
+                continue
+
+        if target_time is None:
+            yield event.plain_result("时间格式错误，应为 HH:MM 或 HH:MM:SS")
+            return
+
+        now = datetime.now()
+        target_dt = datetime.combine(now.date(), target_time)
+        if target_dt <= now:
+            target_dt += timedelta(days=1)
+
+        delay = (target_dt - now).total_seconds()
+        yield event.plain_result(
+            f"已设置定时截屏: {target_dt.strftime('%H:%M:%S')}"
+        )
+        # 分配任务 ID
+        task_id = len(self.tasks) + 1
+
+        async def task():
+            try:
+                await asyncio.sleep(delay)
+                img_path = await self._capture()
+                await event.send(event.image_result(img_path))
+            except asyncio.CancelledError:
+                await event.send(event.plain_result(f"定时截屏任务 #{task_id} 已被取消"))
+                return
+            finally:
+                self.tasks.pop(task_id, None)
+
+        self.tasks[task_id] = asyncio.create_task(task())
+
+    async def terminate(self):
+        """插件卸载时清理所有未完成的定时任务"""
+        for task in list(self.tasks.values()):
+            task.cancel()
+        self.tasks.clear()
