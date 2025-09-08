@@ -2,8 +2,8 @@
     "only_admin": {
         "description": "仅bot管理员可用",
         "type": "bool",
-        "hint": "截屏指令容易泄露隐私，具有高危险性，请谨慎打开，",
-        "default": false
+        "hint": "截屏指令容易泄露隐私，具有高危险性，请不要轻易开放权限",
+        "default": true
     },
     "poke_screenshot": {
         "description": "戳一戳触发截屏",
