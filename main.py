@@ -8,14 +8,16 @@ from astrbot.core.message.components import Poke
 from astrbot.core.platform import AstrMessageEvent
 import pyautogui
 
-from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import AiocqhttpMessageEvent
+from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
+    AiocqhttpMessageEvent,
+)
 
 
 @register(
     "astrbot_plugin_screenctrl",
     "Zhalslar",
     "屏幕控制插件，支持截屏、点击、按键等",
-    "v1.0.2",
+    "v1.0.3",
     "https://github.com/Zhalslar/astrbot_plugin_screenctrl",
 )
 class ScreenshotPlugin(Star):
@@ -26,7 +28,6 @@ class ScreenshotPlugin(Star):
         self.screen_width, self.screen_height = pyautogui.size()
         self.last_trigger_time: dict = {}
         self.tasks: dict[int, asyncio.Task] = {}  # 任务 ID -> Task
-
 
     async def _capture(self) -> str:
         save_name = datetime.now().strftime("screenshot_%Y%m%d_%H%M%S.png")
@@ -42,7 +43,9 @@ class ScreenshotPlugin(Star):
         yield event.image_result(await self._capture())
 
     @filter.command("连续截屏")
-    async def on_continuous_capture(self, event: AstrMessageEvent, count: int =3, interval: int =5):
+    async def on_continuous_capture(
+        self, event: AstrMessageEvent, count: int = 3, interval: int = 5
+    ):
         """连续截屏 <次数> <间隔秒>"""
         if not event.is_admin() and self.conf["only_admin"]:
             return
@@ -52,6 +55,7 @@ class ScreenshotPlugin(Star):
         task_id = len(self.tasks) + 1
 
         yield event.plain_result(f"连续截屏#{task_id}(共{count}次, 间隔{interval}秒):")
+
         async def task():
             try:
                 for i in range(count):
@@ -69,13 +73,14 @@ class ScreenshotPlugin(Star):
 
         self.tasks[task_id] = asyncio.create_task(task())
 
-    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.event_message_type(filter.EventMessageType.ALL, priority=1)
     async def on_poke(self, event: AiocqhttpMessageEvent):
         """戳一戳截屏"""
-        if not self.conf["poke_screenshot"]:
-            return
-        if not event.is_admin() and self.conf["only_admin"]:
+        if (
+            not self.conf["poke_screenshot"]
+            or not event.is_admin()
+            and self.conf["only_admin"]
+        ):
             return
         raw_message = getattr(event.message_obj, "raw_message", None)
 
@@ -127,9 +132,7 @@ class ScreenshotPlugin(Star):
             target_dt += timedelta(days=1)
 
         delay = (target_dt - now).total_seconds()
-        yield event.plain_result(
-            f"已设置定时截屏: {target_dt.strftime('%H:%M:%S')}"
-        )
+        yield event.plain_result(f"已设置定时截屏: {target_dt.strftime('%H:%M:%S')}")
         # 分配任务 ID
         task_id = len(self.tasks) + 1
 
@@ -139,7 +142,9 @@ class ScreenshotPlugin(Star):
                 img_path = await self._capture()
                 await event.send(event.image_result(img_path))
             except asyncio.CancelledError:
-                await event.send(event.plain_result(f"定时截屏任务 #{task_id} 已被取消"))
+                await event.send(
+                    event.plain_result(f"定时截屏任务 #{task_id} 已被取消")
+                )
                 return
             finally:
                 self.tasks.pop(task_id, None)
